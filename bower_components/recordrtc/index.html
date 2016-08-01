@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Sube tu vídeo a las Redes Sociales</title>
+    <link rel="stylesheet" href="">
+</head>
+<body>
+    <form action="save_database.php" method="post" accept-charset="utf-8">
+        <label for="nombre">
+            Nombre: <input type="text" name="nombre" required>
+        </label>
+        <br>
+        <label for="apellido">
+            Apellidos: <input type="text" name="apellidos">
+        </label>
+        <br>
+        <label for="email">
+            Email: <input type="email" name="email" required>
+        </label>
+        <br>
+        <label for="telefono">
+            Teléfono: <input type="number" name="telefono" maxlength="9" max="999999999">
+        </label>
+        <br>
+        <label for="acepta">
+            <input type="checkbox" value="acepta" required>
+            Acepto la <a href="http://#">política de privacidad y condiciones legales</a>
+        </label>
+        <br>
+        <input type="submit" value="Enviar">
+        <!-- GO-TO save_database.php -->
+    </form>
+    
+</body>
+</html>
