@@ -739,17 +739,18 @@
                 // var fileName = (Math.random() * 1000).toString().replace('.', '');
                 var fileName = Date.now();
                 // Get url parameter (nombre)
-                var sPageURL   = decodeURIComponent(window.location.search.substring(1)),
-                    sPageParam = sPageURL.split('=');
-                    // i;
+                function getParameterByName(name, url) {
+                    if (!url) url = window.location.href;
+                    name = name.replace(/[\[\]]/g, "\\$&");
+                    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+                        results = regex.exec(url);
+                    if (!results) return null;
+                    if (!results[2]) return '';
+                    return decodeURIComponent(results[2].replace(/\+/g, " "));
+                }                        
 
-                // for (var i = 0; i < sPageParam.length; i++) {
-
-                //     sPageParam[i] === undefined ? true : sPageParam[i];
-                // };
-                        
-
-                var nombreUsuario = sPageParam[1];
+                var nombreUsuario   = getParameterByName('nombre');
+                var apellidoUsuario = getParameterByName('apellido');
 
                 if (fileType === 'audio') {
                     fileName += '.' + (!!navigator.mozGetUserMedia ? 'ogg' : 'wav');
@@ -761,7 +762,7 @@
                 var formData = new FormData();
                 formData.append(fileType + '-filename', fileName);
                 formData.append(fileType + '-blob', blob);
-                formData.append(nombreUsuario + ' ', nombreUsuario);
+                formData.append('nombreUsuario', nombreUsuario);
 
                 callback('Uploading ' + fileType + ' recording to server.');
 
@@ -1002,7 +1003,9 @@
                 
                 DetectRTC.screen.onMessageCallback(event.data);
             });
+            //Clave API Navegador: AIzaSyAth0RYYDN3eP1yfTNAQNg3NiFn0CJJuPI
         </script>
+
 
 </body>
 

@@ -1,21 +1,22 @@
 <?php
-// Creamos el mensaje asociado al tweet y al vídeo
-if ( isset( $_POST['message'] ) ) {
-  $message = $_POST['message'] . " por " . $_POST["nombreUsuario"];
-} else {
-  // Definimos la variables de para compartir
-  $message     = 'Probando la subida de vídeos con #PHP';
-  $tags        = array("PHP", "Castilla la Mancha");
-  $title       = ( isset( $_POST["nombreUsuario"] ) ) ? 'Video de ' . $_POST["nombreUsuario"] : 'Titulo del video' ;
-  $description = $message;
-}
+// Extremos las variables que nos llegan por AJAX
+$nombreUsuario = ( isset($_POST["nombreUsuario"]) ) ? $_POST["nombreUsuario"] : ' ' ;
+$message       = ( isset($_POST['message']) ) ? $_POST['message'] : 'Vídeo subido por ' . $nombreUsuario;
 
-//
+// Configuración de variables por usuario para Youtube
+$title       = '¡' . $nombreUsuario . ' ha compartido un vídeo con nosotros!';
+$tags        = array("PHP", "Castilla la Mancha");
+$category    = "22";
+$privacy     = "public";//"private";
+
+
+// Save video
 foreach(array('video', 'audio') as $type) {
 	if (isset($_FILES["${type}-blob"])) {
-		
+
 		$fileName 			 = $_POST["${type}-filename"];
 		$uploadDirectory = dirname(__FILE__).'/uploads/' . $fileName;
+    $nombreArchivo   = substr($fileName, 0, -5).'-subido';
 
 		if (!move_uploaded_file($_FILES["${type}-blob"]["tmp_name"], $uploadDirectory)) {
 			echo(" problem moving uploaded file");
@@ -25,61 +26,90 @@ foreach(array('video', 'audio') as $type) {
   }
 }
 
-if ( !isset( $uploadDirectory ) ) {
-  // die('No hay video adjunto');
-  $uploadDirectory = dirname(__FILE__) . '/uploads/1469706044089.mp4';
-}
-
-
 
 /**
  * CONVERTER WEBM TO MP4
  *
  * ffmpeg -i SampleVideo_720x480_1mb.mp4 -ac 2 test.mp4
+ *
+ * Muaz Khan         - www.MuazKhan.com
+ * MIT License       - www.WebRTC-Experiment.com/licence
+ * Documentation     - github.com/muaz-khan/WebRTC-Experiment/tree/master/RecordRTC
+ *   
+ * make sure that you're using newest ffmpeg version!
+ *
+ * because we've different ffmpeg commands for windows & linux
+ * that's why following script is used to fetch target OS
  */
-// require_once('FFMpeg/FFMpeg.php');
-// require_once('FFMpeg/FFProbe.php');
-// require_once('FFMpeg/FFMpegServiceProvider.php');
+$OSList = array
+    (
+    'Windows 3.11' => 'Win16',
+    'Windows 95' => '(Windows 95)|(Win95)|(Windows_95)',
+    'Windows 98' => '(Windows 98)|(Win98)',
+    'Windows 2000' => '(Windows NT 5.0)|(Windows 2000)',
+    'Windows XP' => '(Windows NT 5.1)|(Windows XP)',
+    'Windows Server 2003' => '(Windows NT 5.2)',
+    'Windows Vista' => '(Windows NT 6.0)',
+    'Windows 7' => '(Windows NT 7.0)',
+    'Windows NT 4.0' => '(Windows NT 4.0)|(WinNT4.0)|(WinNT)|(Windows NT)',
+    'Windows ME' => 'Windows ME',
+    'Open BSD' => 'OpenBSD',
+    'Sun OS' => 'SunOS',
+    'Linux' => '(Linux)|(X11)',
+    'Mac OS' => '(Mac_PowerPC)|(Macintosh)',
+    'QNX' => 'QNX',
+    'BeOS' => 'BeOS',
+    'OS/2' => 'OS/2',
+    'Search Bot'=>'(nuhk)|(Googlebot)|(Yammybot)|(Openbot)|(Slurp)|(MSNBot)|(Ask Jeeves/Teoma)|(ia_archiver)'
+    );
 
-// /** Creamos el objeto para manipular los medias */
-// $ffmpeg = FFMpeg\FFMpeg::create();
+// Loop through the array of user agents and matching operating systems
+foreach($OSList as $CurrOS=>$Match) {
+  // Find a match
+  if (preg_match("/".$Match."/i", $_SERVER['HTTP_USER_AGENT'])) {
+    // We found the correct match
+    break;
+  }
+}// end foreach
 
-// /** Si queremos especificar los PATHs de los binarios ffmpeg y ffprobe lo hacemos aquí */
-// // $ffmpeg = FFMpeg\FFMpeg::create(array(
-// //     'ffmpeg.binaries'  => '/opt/local/ffmpeg/bin/ffmpeg',
-// //     'ffprobe.binaries' => '/opt/local/ffmpeg/bin/ffprobe',
-// //     'timeout'          => 3600, // The timeout for the underlying process
-// //     'ffmpeg.threads'   => 12,   // The number of threads that FFMpeg should use
-// // ), $logger);
+// if it is audio-blob
+if ( isset( $uploadDirectory ) ) {
+  $uploadDirectory = $uploadDirectory;//dirname(__FILE__).'uploads/'.$_POST["filename"].'-merged.webm';
 
-// /** Archivo para la marca de agua en el video */
-// $watermarkPath = dirname(__FILE__).'/uploads/watermark.png';
+  $archivoSalida = dirname(__FILE__) . '/uploads/' . $nombreArchivo . '.mp4';
 
-// * Abrimos el video y lo guardamos en la variable $video 
-// $video = $ffmpeg->open( $uploadDirectory );
-// /** Le aplicamos una "mosca" (watermark) */
-// $video
-//     ->filters()
-//     ->watermark( $watermarkPath, array(
-//         'position' => 'relative',
-//         'bottom' => 50,
-//         'right' => 50,
-//     ))
-//     // ->resize(new FFMpeg\Coordinate\Dimension(720, 340))
-//     ->synchronize();
+  // ffmpeg depends on yasm
+  // libvpx depends on libvorbis
+  // libvorbis depends on libogg
+  // make sure that you're using newest ffmpeg version!
 
-// /** Extraemos un frame en jpg (¿de portada?) */
-// // $video
-// //     ->frame(FFMpeg\Coordinate\TimeCode::fromSeconds(10))
-// //     ->save('frame.jpg');
+  if(!strrpos($CurrOS, "Windows")) {
+    // $cmd = '-i '.$audioFile.' -i '.$videoFile.' -map 0:0 -map 1:0 '.$uploadDirectory;
+    $cmd = '-i ' . $uploadDirectory . ' -c:v libx264 ' . $archivoSalida;
+    // $cmd = 'ffmpeg -version';
+  }
+  else {
+    $cmd = '-i '.$uploadDirectory.' -c:v mpeg4 -c:a vorbis -b:v 64k -b:a 12k -strict experimental '.$uploadDirectory;
+  }
 
-// /** Y finalmente le cambiamos el formato */
-// $video
-//     ->save(new FFMpeg\Format\Video\X264(), 'export-' . $fileName . '.mp4');
-//     // ->save(new FFMpeg\Format\Video\WMV(), 'export-wmv.wmv')
-//     // ->save(new FFMpeg\Format\Video\WebM(), 'export-webm.webm');
+  exec('C:\\FFMPEG\\bin\\ffmpeg.exe '.$cmd.' 2>&1', $out, $ret);
 
+  if ($ret){
+    echo "<h3>Houston, tenemos un problema!</h3><br>";
+    echo "Comando cmd ejecutado:<br>";
+    print_r($cmd.'<br>');
+    echo "<br>Salida:<br>";
+    var_dump($out);
 
+  } else {
+    echo "Ffmpeg ha cambiado la extensión del vídeo!<br>";
+
+    // Eliminamos el video almacenado    
+    unlink($uploadDirectory);
+  }
+} else {
+  die('No hay archivo que valga');
+}
 
 
 /**
@@ -114,7 +144,7 @@ $cb->setToken( $token_key, $token_secret );
  *  Deben ser en mp4, 
  *
  */
-$file       = $uploadDirectory; // salida del video convertido
+$file       = $archivoSalida; // salida del video convertido
 $size_bytes = filesize($file);
 $fp         = fopen($file, 'r');
 
@@ -169,18 +199,12 @@ if ($reply->httpstatus < 200 || $reply->httpstatus > 299) {
   echo "Error de estado: " . $reply->httpstatus;
   die();
 }
-/**
- *++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * ELINAR EL CÓDIGO COMENTADO PARA PODER PUBLICAR EN TWITTER +
- *++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-*/
+
 // Usamos el media_id y el $message para tweetear
-// $reply = $cb->statuses_update([
-//   'status'    => $message,
-//   'media_ids' => $media_id
-// ]);
-
-
+$reply = $cb->statuses_update([
+  'status'    => $message,
+  'media_ids' => $media_id
+]); 
 
 
 
@@ -193,33 +217,12 @@ if ($reply->httpstatus < 200 || $reply->httpstatus > 299) {
  * <https://developers.google.com/youtube/v3/guides/authentication>
  * Please ensure that you have enabled the YouTube Data API for your project.
  */
-// Call set_include_path() as needed to point to your client library.
-// set_include_path( get_include_path() . PATH_SEPARATOR . '/google-api-php-client/src');
-require_once 'google-api-php-client/src/Google/autoload.php';
-require_once 'google-api-php-client/src/Google/Client.php';
-require_once 'google-api-php-client/src/Google/Service/YouTube.php';
-
-
-// Tokens 
-// $OAUTH2_CLIENT_ID = '646883548654-enicolam5coh9qqmt5prj20bf17r3n71.apps.googleusercontent.com
-// ';
-// $OAUTH2_CLIENT_SECRET = 'lmSj1WM-rSLLJu8Bh6z_aCvI';
+require_once 'Youtube/vendor/autoload.php';
 
 session_start();
 
-/*
- * You can acquire an OAuth 2.0 client ID and client secret from the
- * {{ Google Cloud Console }} <{{ https://cloud.google.com/console }}>
- * For more information about using OAuth 2.0 to access Google APIs, please see:
- * <https://developers.google.com/youtube/v3/guides/authentication>
- * Please ensure that you have enabled the YouTube Data API for your project.
- */
-// Tokens 
-$OAUTH2_CLIENT_ID     = 'totem-ines-rosales@appspot.gserviceaccount.com';
-$OAUTH2_CLIENT_SECRET = '02d5d3a0f8ba801eb59d645595e8325ba122e7c4';
-$token                = '';
-$REDIRECT             = filter_var('http://' . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF'], FILTER_SANITIZE_URL);
-$APPNAME              = "Totem compartir video";
+$OAUTH2_CLIENT_ID = '903819126407-9f1dqcjn0g2gu6lsojj5csuilhhbckvh.apps.googleusercontent.com';
+$OAUTH2_CLIENT_SECRET = 'hIPObSOg2_kW1VlMrRydPVbU';
 
 $client = new Google_Client();
 $client->setClientId($OAUTH2_CLIENT_ID);
@@ -232,40 +235,123 @@ $client->setRedirectUri($redirect);
 // Define an object that will be used to make all API requests.
 $youtube = new Google_Service_YouTube($client);
 
-echo "<pre>";
-echo "<h1>Objeto Client</h1>";
-var_dump($client);
-echo "<h1>Objeto Youtube</h1>";
-var_dump($youtube);
-echo "</pre>";
-die();
+if (isset($_GET['code'])) {
+  if (strval($_SESSION['state']) !== strval($_GET['state'])) {
+    die('The session state did not match.');
+  }
 
-// if( $client->getAccessToken() ) {
-//     $snippet = new Google_VideoSnippet();
-//     $snippet->setTitle( $title );
-//     $snippet->setDescription( $description );
-//     $snippet->setTags( $tags );
-//     $snippet->setCategoryId("22");
+  $client->authenticate($_GET['code']);
+  $_SESSION['token'] = $client->getAccessToken();
+  header('Location: ' . $redirect);
+}
 
-//     $status = new Google_VideoStatus();
-//     $status->privacyStatus = "private";
+if (isset($_SESSION['token'])) {
+  $client->setAccessToken($_SESSION['token']);
+}
 
-//     $video = new Google_Video();
-//     $video->setSnippet($snippet);
-//     $video->setStatus($status);
+// Check to ensure that the access token was successfully acquired.
+if ($client->getAccessToken()) {
+  try{
+    // REPLACE this value with the path to the file you are uploading.
+    $videoPath = $archivoSalida;
 
-//     $error = true;
-//     $i = 0;
+    // Create a snippet with title, message, tags and category ID
+    // Create an asset resource and set its snippet metadata and type.
+    // This example sets the video's title, message, keyword tags, and
+    // video category.
+    $snippet = new Google_Service_YouTube_VideoSnippet();
+    $snippet->setTitle( $title );
+    $snippet->setDescription( $message );
+    $snippet->setTags( $tags );
 
-//     try {
-//         $obj = $youTubeService->videos->insert("status,snippet", $video,
-//                                          array("data"=>file_get_contents( $uploadDirectory ), 
-//                                         "mimeType" => "video/mp4"));
-//     } catch(Google_ServiceException $e) {
-//         print "Caught Google service Exception ".$e->getCode(). " message is ".$e->getMessage(). " <br>";
-//         print "Stack trace is ".$e->getTraceAsString();
-//     }
-// } else {
-//   $authUrl = $client->createAuthUrl();
-//   print "<a href='$authUrl'>Connect Me!</a>";
-// }
+    // Numeric video category. See
+    // https://developers.google.com/youtube/v3/docs/videoCategories/list 
+    $snippet->setCategoryId( $category );
+
+    // Set the video's status to "public". Valid statuses are "public",
+    // "private" and "unlisted".
+    $status = new Google_Service_YouTube_VideoStatus();
+    $status->privacyStatus = $privacy;
+
+    // Associate the snippet and status objects with a new video resource.
+    $video = new Google_Service_YouTube_Video();
+    $video->setSnippet($snippet);
+    $video->setStatus($status);
+
+    // Specify the size of each chunk of data, in bytes. Set a higher value for
+    // reliable connection as fewer chunks lead to faster uploads. Set a lower
+    // value for better recovery on less reliable connections.
+    $chunkSizeBytes = 1 * 1024 * 1024;
+
+    // Setting the defer flag to true tells the client to return a request which can be called
+    // with ->execute(); instead of making the API call immediately.
+    $client->setDefer(true);
+
+    // Create a request for the API's videos.insert method to create and upload the video.
+    $insertRequest = $youtube->videos->insert("status,snippet", $video);
+
+    // Create a MediaFileUpload object for resumable uploads.
+    $media = new Google_Http_MediaFileUpload(
+        $client,
+        $insertRequest,
+        'video/*',
+        null,
+        true,
+        $chunkSizeBytes
+    );
+    $media->setFileSize(filesize($videoPath));
+
+
+    // Read the media file and upload it chunk by chunk.
+    $status = false;
+    $handle = fopen($videoPath, "rb");
+    while (!$status && !feof($handle)) {
+      $chunk = fread($handle, $chunkSizeBytes);
+      $status = $media->nextChunk($chunk);
+    }
+
+    fclose($handle);
+
+    // If you want to make other calls after the file upload, set setDefer back to false
+    $client->setDefer(false);
+
+
+    $htmlBody .= "<h3>Video Uploaded</h3><ul>";
+    $htmlBody .= sprintf('<li>%s (%s)</li>',
+        $status['snippet']['title'],
+        $status['id']);
+
+    $htmlBody .= '</ul>';
+
+  } catch (Google_Service_Exception $e) {
+    $htmlBody .= sprintf('<p>A service error occurred: <code>%s</code></p>',
+        htmlspecialchars($e->getMessage()));
+  } catch (Google_Exception $e) {
+    $htmlBody .= sprintf('<p>An client error occurred: <code>%s</code></p>',
+        htmlspecialchars($e->getMessage()));
+  }
+
+  $_SESSION['token'] = $client->getAccessToken();
+} else {
+  // If the user hasn't authorized the app, initiate the OAuth flow
+  $state = mt_rand();
+  $client->setState($state);
+  $_SESSION['state'] = $state;
+
+  $authUrl = $client->createAuthUrl();
+  $htmlBody = <<<END
+  <h3>Authorization Required</h3>
+  <p>You need to <a href="$authUrl">authorize access</a> before proceeding.<p>
+END;
+}
+?>
+
+<!doctype html>
+<html>
+  <head>
+    <title>Video Uploaded</title>
+  </head>
+  <body>
+    <?=$htmlBody?>
+  </body>
+</html>
